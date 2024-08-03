@@ -4,7 +4,61 @@ $username = "root";
 $password = "";
 $database = "csd_system";
 
-session_start();
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (isset($_REQUEST["operation"]) && $_REQUEST["operation"] == "increase") {
+    if (isset($_REQUEST["itemId"])) {
+        $itemId = $_REQUEST["itemId"];
+        $response = array(
+            "status" => 200,
+            "id" => $itemId,
+            "price" => $_SESSION["order_list"][$key]["price"],
+            "quantity" => $_SESSION["order_list"][$key]["selected_quantity"]
+        );
+        // Check if the order list exists in the session
+        if (isset($_SESSION["order_list"]) && is_array($_SESSION["order_list"])) {
+            foreach ($_SESSION["order_list"] as $key => $value) {
+                if (isset($value["itemId"]) && $value["itemId"] == $itemId) {
+                    $_SESSION["order_list"][$key]["selected_quantity"] += 1;
+                    $response["price"] = intval($_SESSION["order_list"][$key]["price"]);
+                    $response["quantity"] = $_SESSION["order_list"][$key]["selected_quantity"];
+                    // print_r($_SESSION["order_list"]);
+                    echo json_encode($response);
+                    die;
+                }
+            }
+        }
+    }
+}
+if (isset($_REQUEST["operation"]) && $_REQUEST["operation"] == "decrease") {
+    if (isset($_REQUEST["itemId"])) {
+        $itemId = $_REQUEST["itemId"];
+        $response = array(
+            "status" => 200,
+            "id" => $itemId,
+            "price" => $_SESSION["order_list"][$key]["price"],
+            "quantity" => $_SESSION["order_list"][$key]["selected_quantity"]
+        );
+        // Check if the order list exists in the session
+        if (isset($_SESSION["order_list"]) && is_array($_SESSION["order_list"])) {
+            foreach ($_SESSION["order_list"] as $key => $value) {
+                if (isset($value["itemId"]) && $value["itemId"] == $itemId) {
+                    if ($_SESSION["order_list"][$key]["selected_quantity"] <= 1) {
+                        die;
+                    }
+                    $_SESSION["order_list"][$key]["selected_quantity"] -= 1;
+                    $response["price"] = intval($_SESSION["order_list"][$key]["price"]);
+                    $response["quantity"] = $_SESSION["order_list"][$key]["selected_quantity"];
+                    // print_r($_SESSION["order_list"]);
+                    echo json_encode($response);
+                    die;
+                }
+            }
+        }
+    }
+}
 
 // Establish database connection
 $conn = mysqli_connect($servername, $username, $password, $database);
@@ -63,4 +117,3 @@ echo json_encode($arr);
 // Close connection
 $stmt->close();
 $conn->close();
-?>
