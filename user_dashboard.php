@@ -76,7 +76,6 @@ if (isset($_POST['Add_To_Order'])) {
         // Item not found, add it to the order list
         $_SESSION['order_list'][] = $item;
     }
-
 }
 
 // Handle removing items from order list
@@ -200,15 +199,15 @@ if (isset($_POST['Add_To_Cart'])) {
     position: fixed;
     top: 0;
     right: 0; /* Change this to ensure it's visible on load */
-    /* height: 100%;
+        /* height: 100%;
     transition: right 0.5s ease-in-out;
 }
 
 .order-list.visible {
     right: 0;
-} */ 
+} */
 
-.order-list {
+        .order-list {
             flex: 1;
             background-color: #ffffff;
             padding: 10px;
@@ -222,11 +221,11 @@ if (isset($_POST['Add_To_Cart'])) {
             right: -100%;
             height: 100%;
             transition: right 0.5s ease-in-out;
-           }
- 
-            .order-list.visible {
+        }
+
+        .order-list.visible {
             right: 0;
-           }
+        }
 
 
 
@@ -552,7 +551,7 @@ if (isset($_POST['Add_To_Cart'])) {
                                         <input type="number" class="integer-input" name="selected_quantity" min="1" step="<?php echo ($row['Unit'] == 'Packets') ? '1' : '1'; ?>" value="0" max="0">
                                         <input type="text" class="limit" hidden name="" value="<?php echo $row['limitt']; ?>">
                                         <input type="text" class="item-id" hidden name="" value="<?php echo $row['itemId']; ?>">
-                                        <button type="submit" name="Add_To_Order" class="btn btn-outline-primary add-btn" style="padding: 0.2rem 0.5rem; font-size: 0.8em;" data-limit="<?php echo $row['limitt']; ?>" data-item-id="<?php echo $row['itemId']; ?>" max="<?php echo $row['limitt']; ?>">Add To Order</button>
+                                        <button type="submit" name="Add_To_Order" class="btn btn-outline-primary add-btn" style="padding: 0.2rem 0.5rem; font-size: 0.8em;" data-limit="<?php echo $row['limitt']; ?>" data-item-id="<?php echo $row['itemId']; ?>" max="<?php echo $row['limitt']; ?>" onclick="ToggleOrderList()">Add To Order</button>
                                     </div>
                                 </form>
                             </div>
@@ -642,6 +641,10 @@ if (isset($_POST['Add_To_Cart'])) {
 
     <script>
         $(document).ready(function() {
+            let hasList = <?php echo isset($_SESSION['order_list']) && count($_SESSION['order_list']) > 0 ? 'true' : 'false'; ?>;
+            if (hasList) {
+                toggleOrderList();
+            }
             console.log('hello');
             var $dataMap = new Map();
             fetch('api.php')
@@ -669,10 +672,10 @@ if (isset($_POST['Add_To_Cart'])) {
 
                             if ($dataItemId == itemId) {
                                 var maxValue = limit - (dataMap.has(itemId) ? dataMap.get(itemId) : 0);
-                                if(itemId == 100){
+                                if (itemId == 100) {
                                     console.log(maxValue);
                                     console.log(itemId)
-                                    console.log(dataMap.get(itemId));//Map { 100 → "4.00" } item id is 100
+                                    console.log(dataMap.get(itemId)); //Map { 100 → "4.00" } item id is 100
                                     console.log(dataMap.has(itemId));
                                     console.log(limit);
                                 }
