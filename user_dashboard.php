@@ -62,7 +62,7 @@ if (isset($_POST['Add_To_Order'])) {
 
     $found = false;
     foreach ($_SESSION['order_list'] as &$existingItem) {
-        if ($existingItem['itemId'] === $item['itemId']) {
+        if ($existingItem['itemId'] == $item['itemId']) {
             // Update the quantity
             $existingItem['selected_quantity'] += $item['selected_quantity'];
             if ($existingItem['selected_quantity'] > $item['stock_quantity']) {
@@ -122,6 +122,7 @@ if (isset($_POST['Add_To_Cart'])) {
     exit();
 }
 
+print_r($_SESSION);
 
 ?>
 
@@ -220,7 +221,7 @@ if (isset($_POST['Add_To_Cart'])) {
             top: 0;
             right: -100%;
             height: 100%;
-            transition: right 0.5s ease-in-out;
+            transition: right 0.1s ease-in-out;
         }
 
         .order-list.visible {
@@ -610,10 +611,23 @@ if (isset($_POST['Add_To_Cart'])) {
                     $item_total_price = $item['price'] * $item['selected_quantity'];
                     $total_items += $item['selected_quantity'];
                     $total_price += $item_total_price;
+
             ?>
-                    <div class="order-list-item">
-                        <span><?php echo $item['name']; ?> (<?php echo $item['selected_quantity']; ?> x Rs.<?php echo $item['price']; ?>) = Rs.<?php echo $item_total_price; ?></span>
-                        <form action="" method="POST">
+                    <div class="order-list-item" style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="display: flex; justify-content: space-between;">
+                            <div>
+                                <?php echo $item['name']; ?>
+                                (<span id="<?= $item["itemId"] . '-qty' ?>"><?php echo $item['selected_quantity']; ?></span>
+                                x Rs.<?php echo $item['price']; ?>) =
+                                Rs.<span id="<?= $item["itemId"] . '-total' ?>"><?php echo $item_total_price; ?></span>
+                            </div>
+                            <div>
+                                <button onclick="IncreaseQuantity(<?= $item['itemId'] ?>)">+</button>
+                                <button onclick="DecreaseQuantity(<?= $item['itemId'] ?>)">-</button>
+                                <input type="text" id="intial_price" hidden value="<?php echo $item_total_price; ?>">
+                            </div>
+                        </span>
+                        <form action="" method="POST" style="padding-top: 14px;">
                             <input type="hidden" name="index" value="<?php echo $index; ?>">
                             <button type="submit" name="Remove_From_Order">X</button>
                         </form>
@@ -625,8 +639,10 @@ if (isset($_POST['Add_To_Cart'])) {
             }
             ?>
             <div class="order-summary">
-                <span class="total-items">Total Items: <?php echo $total_items; ?></span>
-                <span class="total-price">Total Price: Rs.<?php echo $total_price; ?></span>
+                <span id="total-items">Total Items:<?php echo $total_items; ?></span>
+                <span id="total-price">Total Price: Rs.<?php echo $total_price; ?></span>
+                <input type="text" id="total_items" hidden value="<?php echo $total_items; ?>">
+                <input type="text" id="total_price" hidden value="<?php echo $total_price; ?>">
                 <form action="" method="POST" class="mt-3">
                     <button type="submit" name="Add_To_Cart" class="btn btn-success">Add All to Cart</button>
                 </form>
@@ -640,11 +656,93 @@ if (isset($_POST['Add_To_Cart'])) {
     <script src="dataTables.min.js"></script>
 
     <script>
+        $(document).ready(function() {});
+
+        function IncreaseQuantity(itemId) {
+            fetch('api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        operation: 'increase',
+                        itemId: itemId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 200) {
+                        const itemId = data.id;
+                        const price = data.price;
+                        const quantity = data.quantity;
+                        const total = price * quantity;
+                        let total_items = parseInt($("#total_items").val());
+                        $("#total_items").val(total_items + 1);
+                        $("#" + itemId + "-qty").text(quantity);
+                        $("#" + itemId + "-total").text(total);
+                        let currentTotalPrice = parseInt($("#total_price").val()) + price;
+                        $("#total-items").text("Total Items: " + (total_items + 1));
+                        $("#total-price").text("Total Price: Rs." + (currentTotalPrice));
+                        $("#total_price").val(currentTotalPrice);
+                    }
+                })
+                .catch(error => {
+                    console.log('Error:', error);
+                });
+        }
+
+        function DecreaseQuantity(itemId) {
+            fetch('api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        operation: 'decrease',
+                        itemId: itemId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 200) {
+                        const itemId = data.id;
+                        const price = data.price;
+                        const quantity = data.quantity;
+                        if (quantity <= 0) {
+                            return;
+                        }
+                        const total = price * quantity;
+                        let total_items = parseInt($("#total_items").val());
+                        $("#total_items").val(total_items - 1);
+                        $("#" + itemId + "-qty").text(quantity);
+                        $("#" + itemId + "-total").text(total);
+                        let currentTotalPrice = parseInt($("#total_price").val()) - price;
+                        $("#total-items").text("Total Items: " + (total_items - 1));
+                        $("#total-price").text("Total Price: Rs." + (currentTotalPrice));
+                        $("#total_price").val(currentTotalPrice);
+                    }
+                })
+                .catch(error => {
+                    console.log('Error:', error);
+                });
+        }
+
+        function toggleOrderList() {
+            const orderList = document.querySelector('.order-list');
+            const hasItems = <?php echo isset($_SESSION['order_list']) && count($_SESSION['order_list']) > 0 ? 'true' : 'false'; ?>;
+            if (hasItems) {
+                orderList.classList.add('visible');
+            } else {
+                orderList.classList.remove('visible');
+            }
+        }
         $(document).ready(function() {
+            // Check if there is an order list
             let hasList = <?php echo isset($_SESSION['order_list']) && count($_SESSION['order_list']) > 0 ? 'true' : 'false'; ?>;
             if (hasList) {
                 toggleOrderList();
             }
+
             console.log('hello');
             var $dataMap = new Map();
             fetch('api.php')
@@ -674,8 +772,8 @@ if (isset($_POST['Add_To_Cart'])) {
                                 var maxValue = limit - (dataMap.has(itemId) ? dataMap.get(itemId) : 0);
                                 if (itemId == 100) {
                                     console.log(maxValue);
-                                    console.log(itemId)
-                                    console.log(dataMap.get(itemId)); //Map { 100 → "4.00" } item id is 100
+                                    console.log(itemId);
+                                    console.log(dataMap.get(itemId)); // Map { 100 → "4.00" } item id is 100
                                     console.log(dataMap.has(itemId));
                                     console.log(limit);
                                 }
@@ -708,16 +806,6 @@ if (isset($_POST['Add_To_Cart'])) {
                 orderList.classList.toggle('visible');
             });
 
-            function toggleOrderList() {
-                const orderList = document.querySelector('.order-list');
-                const hasItems = <?php echo isset($_SESSION['order_list']) && count($_SESSION['order_list']) > 0 ? 'true' : 'false'; ?>;
-                if (hasItems) {
-                    orderList.classList.add('visible');
-                } else {
-                    orderList.classList.remove('visible');
-                }
-            }
-
             // Category filter change event
             $("#category-filter").change(function() {
                 $("#filter-form").submit();
@@ -725,6 +813,7 @@ if (isset($_POST['Add_To_Cart'])) {
             });
         });
     </script>
+
 </body>
 
 
