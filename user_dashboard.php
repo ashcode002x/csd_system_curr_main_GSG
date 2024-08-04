@@ -89,9 +89,13 @@ if (isset($_POST['Remove_From_Order'])) {
 
 // Handle adding the order list to the cart
 if (isset($_POST['Add_To_Cart'])) {
+    // print_r($_REQUEST);
     if (!isset($_SESSION['cart'])) {
         $_SESSION['cart'] = [];
     }
+    $sessionId = $_REQUEST['session'];
+    $sessionData = json_decode($sessionId, true);
+
 
     foreach ($_SESSION['order_list'] as $item) {
         $found = false; // Initialize found flag
@@ -99,9 +103,11 @@ if (isset($_POST['Add_To_Cart'])) {
         foreach ($_SESSION['cart'] as &$cart_item) { // Use reference to update quantity directly
             if ($cart_item['itemId'] === $item['itemId']) {
                 // Update the quantity if the item is already in the cart
+                $limit = intval($sessionData[$item['itemId']]);
                 $cart_item['selected_quantity'] += $item['selected_quantity'];
-                if ($cart_item['selected_quantity'] > $cart_item['stock_quantity']) {
-                    $cart_item['selected_quantity'] = $cart_item['stock_quantity']; // Ensure quantity doesn't exceed stock
+                // if ($cart_item['selected_quantity'] > $cart_item['stock_quantity']) {
+                if ($cart_item['selected_quantity'] > $limit) {
+                    $cart_item['selected_quantity'] = $limit; // Ensure quantity doesn't exceed stock
                 }
                 $found = true; // Set found flag to true
                 break;
@@ -549,7 +555,7 @@ print_r($_SESSION);
                                     <input type="hidden" name="remarks" value="<?php echo $row['Remarks']; ?>">
                                     <input type="hidden" name="unit" value="<?php echo $row['Unit']; ?>">
                                     <div class="select-quantity">
-                                        <input type="number" class="integer-input" name="selected_quantity" min="1" step="<?php echo ($row['Unit'] == 'Packets') ? '1' : '1'; ?>" value="0" max="0">
+                                        <input type="number" class="integer-input" name="selected_quantity" min="1" step="<?php echo ($row['Unit'] == 'Packets') ? '1' : '1'; ?>" value="0" max="0" data-item-id="<?php echo $row['itemId']; ?>" data-limit="<?php echo $row['limitt']; ?>">
                                         <input type="text" class="limit" hidden name="" value="<?php echo $row['limitt']; ?>">
                                         <input type="text" class="item-id" hidden name="" value="<?php echo $row['itemId']; ?>">
                                         <button type="submit" name="Add_To_Order" class="btn btn-outline-primary add-btn" style="padding: 0.2rem 0.5rem; font-size: 0.8em;" data-limit="<?php echo $row['limitt']; ?>" data-item-id="<?php echo $row['itemId']; ?>" max="<?php echo $row['limitt']; ?>" onclick="ToggleOrderList()">Add To Order</button>
@@ -644,6 +650,7 @@ print_r($_SESSION);
                 <input type="text" id="total_items" hidden value="<?php echo $total_items; ?>">
                 <input type="text" id="total_price" hidden value="<?php echo $total_price; ?>">
                 <form action="" method="POST" class="mt-3">
+                    <input type="text" name="session" id="sessionId" value="" hidden>
                     <button type="submit" name="Add_To_Cart" class="btn btn-success">Add All to Cart</button>
                 </form>
             </div>
@@ -659,6 +666,7 @@ print_r($_SESSION);
         $(document).ready(function() {});
 
         function IncreaseQuantity(itemId) {
+            maxvalue = parseInt(sessionStorage.getItem(itemId));
             fetch('api.php', {
                     method: 'POST',
                     headers: {
@@ -666,7 +674,8 @@ print_r($_SESSION);
                     },
                     body: new URLSearchParams({
                         operation: 'increase',
-                        itemId: itemId
+                        itemId: itemId,
+                        maxValue: maxvalue,
                     })
                 })
                 .then(response => response.json())
@@ -736,7 +745,42 @@ print_r($_SESSION);
                 orderList.classList.remove('visible');
             }
         }
+
+        function fetchStock(itemId) {
+
+            fetch('api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        operation: 'stock',
+                        itemId: itemId,
+                        stock: true
+                    })
+                })
+                .then(response => response.json()) // Parse the JSON response
+                .then(data => { // Process the data
+                    // console.log(data); // Log the data
+                    // $input.attr('max', data); // Set the max value
+                    console.log("Api stock: " + data);
+
+                    return data; // Return the data
+                    // maxValue = Math.min(data, maxValue); // Update the max value
+                }) // Handle any errors
+            return 999999; // Return a default value
+        }
         $(document).ready(function() {
+            function getAllSessionData() {
+                let data = {};
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    let key = sessionStorage.key(i);
+                    data[key] = sessionStorage.getItem(key);
+                }
+                return JSON.stringify(data);
+            }
+            $('#sessionId').val(getAllSessionData());
+
             // Check if there is an order list
             let hasList = <?php echo isset($_SESSION['order_list']) && count($_SESSION['order_list']) > 0 ? 'true' : 'false'; ?>;
             if (hasList) {
@@ -745,6 +789,7 @@ print_r($_SESSION);
 
             console.log('hello');
             var $dataMap = new Map();
+
             fetch('api.php')
                 .then(response => {
                     if (!response.ok) {
@@ -770,6 +815,11 @@ print_r($_SESSION);
 
                             if ($dataItemId == itemId) {
                                 var maxValue = limit - (dataMap.has(itemId) ? dataMap.get(itemId) : 0);
+                                // console.log(itemId);
+                                // let stock = fetchStock(itemId);
+                                // console.log("this is stock: " + stock);
+                                // maxValue = Math.min(stock, maxValue);
+                                // console.log("this is maxValue: " + maxValue);
                                 if (itemId == 100) {
                                     console.log(maxValue);
                                     console.log(itemId);
@@ -777,6 +827,8 @@ print_r($_SESSION);
                                     console.log(dataMap.has(itemId));
                                     console.log(limit);
                                 }
+                                sessionStorage.setItem(itemId, maxValue);
+
                                 $input.attr('max', maxValue);
                             }
                         });
@@ -811,7 +863,19 @@ print_r($_SESSION);
                 $("#filter-form").submit();
                 console.log('category-filter changed');
             });
+
         });
+        // $(".integer-input").each(function() {
+        //     var $input = $(this);
+        //     var itemId = $input.data('item-id');
+        //     var limit = parseFloat($input.data('limit'));
+
+        //     // Assuming fetchStock is an asynchronous function returning a promise
+        //     console.log("ready to take js itemId: " + itemId);
+        //     var stock = fetchStock(itemId);
+        //     console.log("stock: " + stock);
+        //     $input.attr('max', Math.min(stock, limit));
+        // });
     </script>
 
 </body>
