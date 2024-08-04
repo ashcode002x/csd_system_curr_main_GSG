@@ -52,22 +52,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['approve_order'])) {
         $order_id = $_GET['approve_order'];
 
-        $approve_stmt = $conn->prepare("UPDATE orders SET status = 2, date_and_time = CURRENT_TIMESTAMP WHERE order_id = ?");
-        $approve1_stmt = $conn->prepare("UPDATE order_details SET date_and_time = CURRENT_TIMESTAMP WHERE order_id = ?");
-        $approve_stmt->bind_param("i", $order_id);
-        $approve1_stmt->bind_param("i", $order_id);
+        // Start transaction
+        $conn->begin_transaction();
 
-        $approve1_stmt->execute();
+        try {
+            // First, retrieve the order details
+            $order_details_stmt = $conn->prepare("SELECT item_id, quantity FROM order_details WHERE order_id = ?");
+            $order_details_stmt->bind_param("i", $order_id);
+            $order_details_stmt->execute();
+            $order_details_result = $order_details_stmt->get_result();
 
-        if ($approve_stmt->execute()) {
+            // Loop through each item in the order and deduct the quantity
+            while ($order_item = $order_details_result->fetch_assoc()) {
+                $item_id = $order_item['item_id'];
+                $ordered_quantity = $order_item['quantity'];
+
+                // Update the stock quantity
+                $update_stock_stmt = $conn->prepare("UPDATE items SET stock_quantity = stock_quantity - ? WHERE itemId = ?");
+                $update_stock_stmt->bind_param("ii", $ordered_quantity, $item_id);
+                $update_stock_stmt->execute();
+                $update_stock_stmt->close();
+            }
+
+            // Approve the order
+            $approve_stmt = $conn->prepare("UPDATE orders SET status = 2, date_and_time = CURRENT_TIMESTAMP WHERE order_id = ?");
+            $approve_stmt->bind_param("i", $order_id);
+            $approve_stmt->execute();
+
+            // Update the order details timestamp
+            $approve1_stmt = $conn->prepare("UPDATE order_details SET date_and_time = CURRENT_TIMESTAMP WHERE order_id = ?");
+            $approve1_stmt->bind_param("i", $order_id);
+            $approve1_stmt->execute();
+
+            // Commit transaction
+            $conn->commit();
+
             header('Location: admin_orders.php');
             exit();
-        } else {
-            echo 'Failed to approve order';
+        } catch (Exception $e) {
+            // Rollback transaction if something goes wrong
+            $conn->rollback();
+            echo 'Failed to approve order: ' . $e->getMessage();
         }
 
         $approve_stmt->close();
+        $order_details_stmt->close();
     }
+
 
     if (isset($_GET['reject_order'])) {
         $order_id = $_GET['reject_order'];
@@ -93,6 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -103,19 +135,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     <link rel="stylesheet" href="all.min.css">
     <style>
         body {
-            background-color: #e6f7ff; /* Light blue background color */
+            background-color: #e6f7ff;
+            /* Light blue background color */
             font-family: Arial, sans-serif;
         }
 
         .section-title {
             margin-top: 20px;
-            color: #2c3e50; /* Darker shade for heading */
+            color: #2c3e50;
+            /* Darker shade for heading */
             font-weight: bold;
         }
 
         .table-container {
             margin-top: 20px;
-            background-color: #ffffff; /* White background for table */
+            background-color: #ffffff;
+            /* White background for table */
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -133,30 +168,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         }
 
         h4 {
-            color: #3498db; /* Bright blue color for Order ID heading */
+            color: #3498db;
+            /* Bright blue color for Order ID heading */
             margin-bottom: 10px;
         }
 
         .table thead th {
-            background-color: #ecf0f1; /* Light grey background for table header */
-            color: #2c3e50; /* Dark text color for table header */
+            background-color: #ecf0f1;
+            /* Light grey background for table header */
+            color: #2c3e50;
+            /* Dark text color for table header */
         }
 
         .table tbody tr:nth-child(even) {
-            background-color: #f9f9f9; /* Very light grey for zebra striping */
+            background-color: #f9f9f9;
+            /* Very light grey for zebra striping */
         }
 
         .table tbody tr:hover {
-            background-color: #e0f7fa; /* Light cyan hover effect */
+            background-color: #e0f7fa;
+            /* Light cyan hover effect */
         }
 
         .btn-primary {
-            background-color: #3498db; /* Bright blue for primary button */
+            background-color: #3498db;
+            /* Bright blue for primary button */
             border-color: #3498db;
         }
 
         .btn-primary:hover {
-            background-color: #2980b9; /* Darker blue for hover effect */
+            background-color: #2980b9;
+            /* Darker blue for hover effect */
             border-color: #2980b9;
         }
 
@@ -169,27 +211,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             top: 10px;
             right: 10px;
             margin-top: 110px;
-            margin-right : 180px;
+            margin-right: 180px;
         }
 
         td.d-flex {
-            border: none; /* Remove any border around the td */
-            outline: none; /* Remove any outline */
-            box-shadow: none; /* Remove any shadow */
-            gap:4px;
-            padding: 0; /* Remove any default padding */
-            margin: 0; /* Remove any default margin */
+            border: none;
+            /* Remove any border around the td */
+            outline: none;
+            /* Remove any outline */
+            box-shadow: none;
+            /* Remove any shadow */
+            gap: 4px;
+            padding: 0;
+            /* Remove any default padding */
+            margin: 0;
+            /* Remove any default margin */
         }
 
         /* Remove any border, outline, or shadow from buttons */
         td.d-flex button {
-            border: none; /* Remove border from buttons */
-            outline: none; /* Remove outline from buttons */
-            box-shadow: none; /* Remove any shadow from buttons */
-            margin: 0; /* Ensure no extra margin around buttons */
+            border: none;
+            /* Remove border from buttons */
+            outline: none;
+            /* Remove outline from buttons */
+            box-shadow: none;
+            /* Remove any shadow from buttons */
+            margin: 0;
+            /* Ensure no extra margin around buttons */
         }
     </style>
 </head>
+
 <body>
 
     <!-- Back Button -->
@@ -231,7 +283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     echo "<th>Price</th>";
                     echo "<th>Unit</th>";
                     echo "<th>Remarks</th>";
-                    echo "<th>Date and Time</th>"; 
+                    echo "<th>Date and Time</th>";
                     echo "<th>Actions</th>";
                     echo "</tr>";
                     echo "</thead>";
@@ -298,8 +350,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             ?>
         </div>
 
-       <!-- Past Orders Section -->
-       <h2 class="section-title">Past Orders</h2>
+        <!-- Past Orders Section -->
+        <h2 class="section-title">Past Orders</h2>
         <div class="table-container">
             <?php
             $query = "SELECT * FROM orders WHERE status IN (2, 0) ORDER BY status DESC, date_and_time DESC";
@@ -327,7 +379,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     echo "<th>Price</th>";
                     echo "<th>Unit</th>";
                     echo "<th>Remarks</th>";
-                    echo "<th>Date and Time</th>"; 
+                    echo "<th>Date and Time</th>";
                     echo "<th>Status</th>";
                     echo "</tr>";
                     echo "</thead>";
@@ -397,7 +449,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                     <form method="POST" action="">
                         <div class="form-group">
                             <label for="quantity">Quantity</label>
-                            <input type="number" class="form-control" id="quantity" name="quantity" min="1" step="0.01" required>
+                            <input type="number" class="form-control" id="quantity" name="quantity" min="1" step="1" max="0" required>
                         </div>
                         <input type="hidden" id="updateItemId" name="item_id">
                         <input type="hidden" id="updateOrderId" name="order_id">
@@ -416,47 +468,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     <script src="bootstrap.min.js"></script>
 
     <script>
-    $(document).ready(function() {
-        // Handle update button click
-        $('.btn-update').on('click', function() {
-            var itemId = $(this).data('item-id');
-            var quantity = $(this).data('quantity');
-            var orderId = $(this).closest('table').data('order-id'); // Assuming the order ID is stored in the table's data attribute
-            var stockQuantity = $(this).data('stock-quantity');
-            $('#updateItemId').val(itemId);
-            $('#updateOrderId').val(orderId);
-            $('#updateStockQuantity').val(stockQuantity);
-            $('#quantity').val(quantity);
-            $('#updateModal').modal('show');
-        });
+        function fetchStock(itemId) {
 
-        // Handle delete button click
-        $('.btn-delete').on('click', function() {
-            var itemId = $(this).data('item-id');
-            if (confirm("Are you sure you want to delete this item?")) {
-                window.location.href = `admin_orders.php?delete_item=${itemId}`;
-            }
-        });
+            fetch('api.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        operation: 'stock',
+                        itemId: itemId,
+                        // stock: true
+                    })
+                })
+                .then(response => response.json()) // Parse the JSON response
+                .then(data => { // Process the data
+                    console.log(data); // Log the data
+                    $("#quantity").attr("max", data); // Set the max value
+                    // return data; // Return the data
+                })
+        }
+        $(document).ready(function() {
+            // Handle update button click
+            // console.log(fetchStock($("#updateItemId").val()));
+            fetchStock($("#updateItemId").val());
+            // $("#quantity").attr("max", fetchStock($("#updateItemId").val()));
+            $('.btn-update').on('click', function() {
+                var itemId = $(this).data('item-id');
+                var quantity = $(this).data('quantity');
+                var orderId = $(this).closest('table').data('order-id'); // Assuming the order ID is stored in the table's data attribute
+                var stockQuantity = $(this).data('stock-quantity');
+                console.log(fetchStock(itemId));
+                $stock = fetchStock(itemId);
+                $("#quantity").attr("max", $stock);
+                $('#updateItemId').val(itemId);
+                $('#updateOrderId').val(orderId);
+                $('#updateStockQuantity').val(stockQuantity);
+                $('#quantity').val(quantity);
+                $('#updateModal').modal('show');
+            });
 
-        // Handle approve button click
-        $('.btn-approve').on('click', function() {
-            var orderId = $(this).data('order-id');
-            if (confirm("Are you sure you want to approve this order?")) {
-                window.location.href = `admin_orders.php?approve_order=${orderId}`;
-            }
-        });
+            // Handle delete button click
+            $('.btn-delete').on('click', function() {
+                var itemId = $(this).data('item-id');
+                if (confirm("Are you sure you want to delete this item?")) {
+                    window.location.href = `admin_orders.php?delete_item=${itemId}`;
+                }
+            });
 
-        // Handle reject button click
-        $('.btn-reject').on('click', function() {
-            var orderId = $(this).data('order-id');
-            if (confirm("Are you sure you want to reject this order?")) {
-                window.location.href = `admin_orders.php?reject_order=${orderId}`;
-            }
+            // Handle approve button click
+            $('.btn-approve').on('click', function() {
+                var orderId = $(this).data('order-id');
+                if (confirm("Are you sure you want to approve this order?")) {
+                    window.location.href = `admin_orders.php?approve_order=${orderId}`;
+                }
+            });
+
+            // Handle reject button click
+            $('.btn-reject').on('click', function() {
+                var orderId = $(this).data('order-id');
+                if (confirm("Are you sure you want to reject this order?")) {
+                    window.location.href = `admin_orders.php?reject_order=${orderId}`;
+                }
+            });
         });
-    });
     </script>
-    
+
 </body>
+
 </html>
 
 <?php

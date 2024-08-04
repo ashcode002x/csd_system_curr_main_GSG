@@ -106,13 +106,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (isset($_POST['Make_Purchase'])) {
         $total = 0;
-    
+
         if (isset($_SESSION['cart']) && !empty($_SESSION['cart'])) {
             // Calculate total amount
             foreach ($_SESSION['cart'] as $value) {
                 $total += $value['price'] * $value['selected_quantity'];
             }
-    
+
             if ($total == 0) {
                 echo "<script>alert('No items in the cart!')</script>";
                 echo "<script>window.location = 'cartpage.php'</script>";
@@ -126,43 +126,43 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $stmt->execute();
                     $result = $stmt->get_result();
                 } while ($result->num_rows > 0);
-    
+
                 $stmt->close();
-    
+
                 // Begin transaction
                 $conn->begin_transaction();
-    
+
                 try {
                     $user_id = $_SESSION['user_id'];
                     $status = 1; // assuming status 1 means 'pending'
-    
+
                     // Insert into orders table
                     $stmt = $conn->prepare("INSERT INTO orders (user_id, order_id, status) VALUES (?, ?, ?)");
                     $stmt->bind_param("iii", $user_id, $order_id, $status);
                     $stmt->execute();
-    
+
                     // Check if the order was inserted
                     if ($stmt->affected_rows === 0) {
                         throw new Exception("Failed to insert into orders table.");
                     }
-    
+
                     // Insert into order_details table
                     $stmt = $conn->prepare("INSERT INTO order_details (order_id, item_id, item_name, quantity, price, unit) VALUES (?, ?, ?, ?, ?, ?)");
-    
+
                     foreach ($_SESSION['cart'] as $value) {
                         // Convert the quantity to a float to handle decimal values
                         $quantity = floatval($value['selected_quantity']);
-                        
+
                         // Bind the parameters correctly with d for decimal values
                         $stmt->bind_param("iisdss", $order_id, $value['itemId'], $value['name'], $quantity, $value['price'], $value['unit']);
                         $stmt->execute();
-    
+
                         // Check if the order details were inserted
                         if ($stmt->affected_rows === 0) {
                             throw new Exception("Failed to insert into order_details table.");
                         }
                     }
-    
+
                     // Commit transaction
                     $conn->commit();
                     unset($_SESSION['cart']); // Clear the cart
@@ -178,14 +178,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             echo "<script>window.location = 'cartpage.php'</script>";
         }
     }
-    
-    
-    
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -196,7 +194,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <link rel="stylesheet" href="all.min.css">
     <style>
         body {
-            background-color: #f0f2f5; /* Light background color */
+            background-color: #f0f2f5;
+            /* Light background color */
         }
 
         .header-row {
@@ -208,7 +207,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .header-row h1 {
             margin: 0;
-            color: #343a40; /* Dark color for heading */
+            color: #343a40;
+            /* Dark color for heading */
         }
 
         .btn-primary {
@@ -255,7 +255,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .btn-orders {
-            background-color: #28a745; /* Attractive color */
+            background-color: #28a745;
+            /* Attractive color */
             border-color: #28a745;
             color: #fff;
             transition: background-color 0.3s, border-color 0.3s, transform 0.3s;
@@ -263,7 +264,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .btn-orders:hover {
             background-color: #218838;
-            border-color: #1e7e34;  
+            border-color: #1e7e34;
             transform: scale(1.05);
         }
 
@@ -277,17 +278,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
-            justify-content: center; /* Center cards horizontally */
+            justify-content: center;
+            /* Center cards horizontally */
         }
 
         .card-container .card {
-            flex: 1 1 calc(25% - 20px); /* 4 cards per row with spacing */
-            max-width: 280px; /* Slightly increased card width */
+            flex: 1 1 calc(25% - 20px);
+            /* 4 cards per row with spacing */
+            max-width: 280px;
+            /* Slightly increased card width */
             margin-bottom: 20px;
             transition: transform 0.3s, box-shadow 0.3s;
-            border: 1px solid #ddd; /* Light border color */
+            border: 1px solid #ddd;
+            /* Light border color */
             border-radius: 8px;
-            background-color: #fff; /* Card background color */
+            background-color: #fff;
+            /* Card background color */
         }
 
         .card-container .card:hover {
@@ -296,11 +302,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .card-img-top {
-            height: 50%; /* Set a fixed height for the image */
-            width: 50%; /* Make the image take full width of the card */
-            margin:auto;
+            height: 50%;
+            /* Set a fixed height for the image */
+            width: 50%;
+            /* Make the image take full width of the card */
+            margin: auto;
             object-fit: cover;
-            border-bottom: 1px solid #ddd; /* Border below image */
+            border-bottom: 1px solid #ddd;
+            /* Border below image */
         }
 
         .card-body {
@@ -314,27 +323,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .card-text {
-            color: #495057; /* Darker text color */
+            color: #495057;
+            /* Darker text color */
         }
 
         .cart-summary {
             margin-top: 30px;
-            background-color: #ffffff; /* Background color for summary */
+            background-color: #ffffff;
+            /* Background color for summary */
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
-        .temp
-        {
+        .temp {
             margin-top: -8px;
-            display:flex;
+            display: flex;
             justify-content: space-between;
         }
 
         .table-container {
             margin-top: 20px;
-            background-color: #ffffff; /* White background for table */
+            background-color: #ffffff;
+            /* White background for table */
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -342,17 +353,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         @media (max-width: 768px) {
             .card-container .card {
-                flex: 1 1 calc(50% - 20px); /* 2 cards per row on small screens */
+                flex: 1 1 calc(50% - 20px);
+                /* 2 cards per row on small screens */
             }
         }
 
         @media (max-width: 576px) {
             .card-container .card {
-                flex: 1 1 100%; /* 1 card per row on extra small screens */
+                flex: 1 1 100%;
+                /* 1 card per row on extra small screens */
             }
         }
     </style>
 </head>
+
 <body>
 
     <!-- navbar -->
@@ -367,59 +381,59 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             </div>
         </div>
 
-<div class="table-container">
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th scope="col">ID</th>
-                <th scope="col">Image</th>
-                <th scope="col">Name</th>
-                <th scope="col">Category</th>
-                <th scope="col">Description</th>
-                <th scope="col">Price</th>
-                <th scope="col">Quantity</th>
-                <th scope="col">Unit</th>
-                <th scope="col">Total</th>
-                <th scope="col">Remarks</th>
-                <th scope="col">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php
-            $total = 0;
-            if (isset($_SESSION['cart'])) {
-                foreach ($_SESSION['cart'] as $key => $value) {
-                    $query = "SELECT * FROM items WHERE itemId = " . $value['itemId'];
-                    $result = mysqli_query($conn, $query);
+        <div class="table-container">
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Image</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Category</th>
+                        <th scope="col">Description</th>
+                        <th scope="col">Price</th>
+                        <th scope="col">Quantity</th>
+                        <th scope="col">Unit</th>
+                        <th scope="col">Total</th>
+                        <th scope="col">Remarks</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $total = 0;
+                    if (isset($_SESSION['cart'])) {
+                        foreach ($_SESSION['cart'] as $key => $value) {
+                            $query = "SELECT * FROM items WHERE itemId = " . $value['itemId'];
+                            $result = mysqli_query($conn, $query);
 
-                    if (!$result) {
-                        die("Error fetching item details: " . mysqli_error($conn));
-                    }
+                            if (!$result) {
+                                die("Error fetching item details: " . mysqli_error($conn));
+                            }
 
-                    if (mysqli_num_rows($result) > 0) {
-                        $row = mysqli_fetch_assoc($result);
-                        $stockQuantity = $row['stock_quantity'];
-                        $itemImage = !empty($row['item_image']) ? $row['item_image'] : 'default_image.jpg';
-                    } else {
-                        $stockQuantity = 0;
-                        $itemImage = 'default_image.jpg';
-                    }
+                            if (mysqli_num_rows($result) > 0) {
+                                $row = mysqli_fetch_assoc($result);
+                                $stockQuantity = $row['stock_quantity'];
+                                $itemImage = !empty($row['item_image']) ? $row['item_image'] : 'default_image.jpg';
+                            } else {
+                                $stockQuantity = 0;
+                                $itemImage = 'default_image.jpg';
+                            }
 
-                    // Calculate total price
-                    $total += $value['price'] * $value['selected_quantity'];
+                            // Calculate total price
+                            $total += $value['price'] * $value['selected_quantity'];
 
-                    echo "<tr>";
-                    echo "<td>" . htmlspecialchars($value['itemId']) . "</td>";
-                    echo "<td><img src='items_image/" . htmlspecialchars($itemImage) . "' alt='" . htmlspecialchars($value['name']) . "' style='width: 50px; height: 50px;'></td>";
-                    echo "<td>" . htmlspecialchars($value['name']) . "</td>";
-                    echo "<td>" . htmlspecialchars($value['category']) . "</td>";
-                    echo "<td>" . htmlspecialchars($value['description']) . "</td>";
-                    echo "<td>" . number_format($value['price'], 2) . "</td>";
-                    echo "<td>" . $value['selected_quantity'] . "</td>";
-                    echo "<td>" . $value['unit'] . "</td>";
-                    echo "<td>" . $value['selected_quantity'] * number_format($value['price'], 2) . "</td>";
-                    echo "<td>" . htmlspecialchars($value['remarks']) . "</td>";
-                    echo "<td>
+                            echo "<tr>";
+                            echo "<td>" . htmlspecialchars($value['itemId']) . "</td>";
+                            echo "<td><img src='items_image/" . htmlspecialchars($itemImage) . "' alt='" . htmlspecialchars($value['name']) . "' style='width: 50px; height: 50px;'></td>";
+                            echo "<td>" . htmlspecialchars($value['name']) . "</td>";
+                            echo "<td>" . htmlspecialchars($value['category']) . "</td>";
+                            echo "<td>" . htmlspecialchars($value['description']) . "</td>";
+                            echo "<td>" . number_format($value['price'], 2) . "</td>";
+                            echo "<td>" . $value['selected_quantity'] . "</td>";
+                            echo "<td>" . $value['unit'] . "</td>";
+                            echo "<td>" . $value['selected_quantity'] * number_format($value['price'], 2) . "</td>";
+                            echo "<td>" . htmlspecialchars($value['remarks']) . "</td>";
+                            echo "<td>
                             <div class='d-flex justify-content-between'>
                                 <button class='btn btn-outline-primary edit-btn' data-itemid='" . $value['itemId'] . "' data-selectedquantity='" . $value['selected_quantity'] . "' data-stockquantity='" . $stockQuantity . "'>Edit</button>
                                 <form method='POST' class='mb-0'>
@@ -428,15 +442,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                 </form>
                             </div>
                           </td>";
-                    echo "</tr>";
-                }
-            } else {
-                echo "<tr><td colspan='10'>Your cart is empty</td></tr>";
-            }
-            ?>
-        </tbody>
-    </table>
-</div>
+                            echo "</tr>";
+                        }
+                    } else {
+                        echo "<tr><td colspan='10'>Your cart is empty</td></tr>";
+                    }
+                    ?>
+                </tbody>
+            </table>
+        </div>
 
 
         <div class="col-lg-3 col-md-6 ml-auto cart-summary">
@@ -465,7 +479,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     <div class="modal-body">
                         <div class="form-group">
                             <label for="editQuantity">Selected Quantity:</label>
-                            <input type="number" class="form-control" id="editQuantity" name="selected_quantity" value="" min="1" step="0.01">
+                            <input type="number" class="form-control" id="editQuantity" name="selected_quantity" value="" min="1" step="1" max="0">
                             <input type="hidden" name="editItemId" id="editItemId" value="">
                         </div>
                     </div>
@@ -485,22 +499,24 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <script>
         $(document).ready(function() {
-            <?php if ($updateSuccess): ?>
+            $("#editQuantity").attr("max", sessionStorage.getItem($("#editItemId").val()));
+            <?php if ($updateSuccess) : ?>
                 // Display success alert using Bootstrap alert
                 $('.container').prepend('<div class="alert alert-success alert-dismissible fade show mt-3" role="alert">Item quantity updated successfully!<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
             <?php endif; ?>
-            
+
             $('.edit-btn').on('click', function() {
                 var itemId = $(this).data('itemid');
                 var selectedQuantity = $(this).data('selectedquantity');
                 var stockQuantity = $(this).data('stockquantity');
 
                 $('#editItemId').val(itemId);
-                $('#editQuantity').attr('max', stockQuantity); // Set max attribute dynamically
+                $('#editQuantity').attr('max', sessionStorage.getItem(itemId));
                 $('#editQuantity').val(selectedQuantity);
                 $('#editModal').modal('show');
             });
         });
     </script>
 </body>
+
 </html>
