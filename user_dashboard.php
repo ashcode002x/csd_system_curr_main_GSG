@@ -185,7 +185,7 @@ if (isset($_POST['Add_To_Cart'])) {
     exit();
 }
 
-print_r($_SESSION);
+// print_r($_SESSION);
 
 ?>
 
