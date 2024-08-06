@@ -3,7 +3,7 @@ $servername = "localhost";
 $username = "root";
 $password = "";
 $database = "csd_system";
-
+global $limit1;
 session_start();
 
 // Establish database connection
@@ -44,6 +44,59 @@ if (isset($_GET['category_filter'])) {
 
 // Handle adding items to order list
 if (isset($_POST['Add_To_Order'])) {
+    $itemId = $_POST['itemId'];
+    $user_id = $_SESSION['user_id'];
+    $current_month = (int)date('m');
+    $start_date = $current_month % 2 == 0 ? date('Y-m-01', strtotime('first day of -1 month')) : date('Y-m-01');
+
+    $query = "SELECT 
+    SUM(order_details.quantity) AS total_quantity, 
+    items.limitt AS limitt, 
+    items.stock_quantity AS stock,  
+    items.limit1 AS limit1
+    FROM 
+        items
+    LEFT JOIN 
+        order_details ON items.itemId = order_details.item_id
+    LEFT JOIN 
+        orders ON order_details.order_id = orders.order_id
+    WHERE 
+        items.itemId = ? 
+        AND (orders.user_id = ? OR orders.user_id IS NULL)
+        AND (orders.status IS NULL OR orders.status != 0 or orders.status != 1)
+        AND (order_details.date_and_time BETWEEN ? AND NOW() OR order_details.date_and_time IS NULL);
+";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("iis", $itemId, $user_id, $start_date);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $fetch = $result->fetch_assoc();
+    if ($result === false) {
+        die("Error fetching total quantity: " . mysqli_error($conn));
+    }
+    if ($fetch['total_quantity'] == null) {
+        $total_quantity_purchased_2months = 0;
+    } else {
+        $total_quantity_purchased_2months = $fetch['total_quantity'];
+    }
+
+    $limitt = $fetch['limitt'];
+    $limit1 = $fetch['limit1'];
+    // print_r($fetch);
+
+    $limit = $limitt - $total_quantity_purchased_2months;
+
+    $stock = $fetch['stock'];
+    $maxVal = min($limit, $stock, $limit1);
+    if (!isset($_SESSION['maxvalues']) || !is_array($_SESSION['maxvalues'])) {
+        $_SESSION['maxvalues'] = [];
+    }
+
+    // Store the max value for the specific itemId
+    $_SESSION['maxvalues'][$itemId] = $maxVal;
+    print_r($_SESSION);
+
+
     $item = [
         'itemId' => $_POST['itemId'],
         'name' => $_POST['name'],
@@ -65,8 +118,8 @@ if (isset($_POST['Add_To_Order'])) {
         if ($existingItem['itemId'] == $item['itemId']) {
             // Update the quantity
             $existingItem['selected_quantity'] += $item['selected_quantity'];
-            if ($existingItem['selected_quantity'] > $item['stock_quantity']) {
-                $existingItem['selected_quantity'] = $item['stock_quantity']; // Ensure quantity doesn't exceed stock
+            if ($existingItem['selected_quantity'] > $maxVal) {
+                $existingItem['selected_quantity'] = $maxVal;
             }
             $found = true;
             break;
@@ -89,6 +142,8 @@ if (isset($_POST['Remove_From_Order'])) {
 
 // Handle adding the order list to the cart
 if (isset($_POST['Add_To_Cart'])) {
+
+
     // print_r($_REQUEST);
     if (!isset($_SESSION['cart'])) {
         $_SESSION['cart'] = [];
@@ -99,6 +154,8 @@ if (isset($_POST['Add_To_Cart'])) {
 
     foreach ($_SESSION['order_list'] as $item) {
         $found = false; // Initialize found flag
+
+
 
         foreach ($_SESSION['cart'] as &$cart_item) { // Use reference to update quantity directly
             if ($cart_item['itemId'] === $item['itemId']) {
@@ -665,6 +722,37 @@ print_r($_SESSION);
     <script>
         $(document).ready(function() {});
 
+        function runAfter() {
+            $(".integer-input").each(function() {
+                var $input = $(this);
+                var itemId = $input.data('item-id');
+
+                fetch(`api.php?method=fetchlimit1&itemid=${itemId}`, {
+                        method: 'GET',
+                    })
+                    .then(response => response.json()) // Parse the JSON response
+                    .then(data => { // Process the data from the first fetch
+                        console.log("this is data: " + data);
+                        var maxValue = parseInt($input.attr('max'));
+                        maxValue = Math.min(data, maxValue);
+
+                        // Make the second fetch call inside the first then block
+                        return fetch(`api.php?operation=stock&itemId=${itemId}`, {
+                            method: 'GET',
+                        }).then(response => response.json()); // Return the parsed JSON response
+                    })
+                    .then(data => { // Process the data from the second fetch
+                        if (data.status === 200) {
+                            var maxValue = parseInt($input.attr('max'));
+                            maxValue = Math.min(data.stock_quantity, maxValue);
+                            $input.attr('max', maxValue); // Set the max attribute for the current input
+                        }
+                    })
+                    .catch(error => console.error('Error:', error)); // Add error handling
+            });
+        }
+
+
         function IncreaseQuantity(itemId) {
             maxvalue = parseInt(sessionStorage.getItem(itemId));
             fetch('api.php', {
@@ -746,30 +834,6 @@ print_r($_SESSION);
             }
         }
 
-        function fetchStock(itemId) {
-
-            fetch('api.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: new URLSearchParams({
-                        operation: 'stock',
-                        itemId: itemId,
-                        stock: true
-                    })
-                })
-                .then(response => response.json()) // Parse the JSON response
-                .then(data => { // Process the data
-                    // console.log(data); // Log the data
-                    // $input.attr('max', data); // Set the max value
-                    console.log("Api stock: " + data);
-
-                    return data; // Return the data
-                    // maxValue = Math.min(data, maxValue); // Update the max value
-                }) // Handle any errors
-            return 999999; // Return a default value
-        }
         $(document).ready(function() {
             function getAllSessionData() {
                 let data = {};
@@ -830,6 +894,7 @@ print_r($_SESSION);
                                 sessionStorage.setItem(itemId, maxValue);
 
                                 $input.attr('max', maxValue);
+                                runAfter();
                             }
                         });
                     }

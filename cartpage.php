@@ -499,7 +499,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <script>
         $(document).ready(function() {
-            $("#editQuantity").attr("max", sessionStorage.getItem($("#editItemId").val()));
+
+
             <?php if ($updateSuccess) : ?>
                 // Display success alert using Bootstrap alert
                 $('.container').prepend('<div class="alert alert-success alert-dismissible fade show mt-3" role="alert">Item quantity updated successfully!<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button></div>');
@@ -514,7 +515,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $('#editQuantity').attr('max', sessionStorage.getItem(itemId));
                 $('#editQuantity').val(selectedQuantity);
                 $('#editModal').modal('show');
+                fetch(`api.php?operation=fetchmin&itemId=${itemId}`, {
+                        method: 'GET',
+                    })
+                    .then(response => response.json()) // Parse the JSON response
+                    .then(data => { // Process the data
+                        $("#editQuantity").attr('max', data);
+                    })
+                    .catch(error => console.error('Error:', error));
             });
+
         });
     </script>
 </body>
