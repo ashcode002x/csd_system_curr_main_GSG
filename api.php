@@ -24,6 +24,29 @@ if ($conn->connect_error) {
 }
 
 
+// find piller of stock market
+if (isset($_REQUEST["method"]) && $_REQUEST["method"] == "fetchAll") {
+    $itemId = $_REQUEST['itemid'];
+    $user_id = $_SESSION['user_id'];
+    $current_month = (int)date('m');
+
+    $start_date = $current_month % 2 == 0 ? date('Y-m-01', strtotime('first day of -1 month')) : date('Y-m-01');
+
+    $query = "SELECT limit1, stock_quantity FROM items WHERE itemId = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $itemId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $fetch = $result->fetch_assoc();
+    if ($result === false) {
+        die("Error fetching total quantity: " . mysqli_error($conn));
+    }
+    $result_limit1 = $fetch['limit1'];
+    $result_stock_quantity = $fetch['stock_quantity'];
+    jsonResponse(array("limit1" => $result_limit1, "stock" => $result_stock_quantity));
+    die;
+}
+
 // handle 3 sum
 if (isset($_REQUEST["method"]) && $_REQUEST["method"] == "fetchlimit1") {
     $itemId = $_REQUEST['itemid'];
@@ -152,7 +175,7 @@ $total_price = 0;
 $user_id = $_SESSION['user_id'] ?? null;
 
 if ($user_id) {
-    $query = "SELECT i.itemId, SUM(od.quantity) AS total_quantity, i.stock_quantity
+    $query = "SELECT i.itemId, SUM(od.quantity) AS total_quantity, i.stock_quantity, i.limit1
               FROM orders o
               JOIN order_details od ON od.order_id = o.order_id
               JOIN items i ON i.itemId = od.item_id
@@ -173,10 +196,13 @@ if ($user_id) {
 
     $arr = [];
     while ($row = $result->fetch_assoc()) {
-        $arr[$row['itemId']] = min($row['total_quantity'], $row['stock_quantity']);
+        // print_r($row);
+        $arr[$row['itemId']] = ["total_qty" => min($row['total_quantity'], $row['stock_quantity']), "limit1" => $row['limit1']];
     }
+    // print_r($arr);
+    // die;
 
-    jsonResponse($arr);
+    echo jsonResponse($arr);
 }
 
 $stmt->close();

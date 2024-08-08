@@ -483,8 +483,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 })
                 .then(response => response.json()) // Parse the JSON response
                 .then(data => { // Process the data
-                    console.log(data); // Log the data
-                    $("#quantity").attr("max", data); // Set the max value
+                    console.log(data.stock_quantity); // Log the data
+                    $("#quantity").attr("max", data.stock_quantity); // Set the max value
                     // return data; // Return the data
                 })
         }
@@ -498,7 +498,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 var quantity = $(this).data('quantity');
                 var orderId = $(this).closest('table').data('order-id'); // Assuming the order ID is stored in the table's data attribute
                 var stockQuantity = $(this).data('stock-quantity');
-                console.log(fetchStock(itemId));
+                // console.log(fetchStock(itemId));
                 $stock = fetchStock(itemId);
                 $("#quantity").attr("max", $stock);
                 $('#updateItemId').val(itemId);

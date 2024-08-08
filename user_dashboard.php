@@ -722,31 +722,22 @@ if (isset($_POST['Add_To_Cart'])) {
     <script>
         $(document).ready(function() {});
 
-        function runAfter() {
+        function runAfter() { // Run this function after the fetch call and fetch limit1
             $(".integer-input").each(function() {
                 var $input = $(this);
                 var itemId = $input.data('item-id');
 
-                fetch(`api.php?method=fetchlimit1&itemid=${itemId}`, {
+                fetch(`api.php?method=fetchAll&itemid=${itemId}`, {
                         method: 'GET',
                     })
                     .then(response => response.json()) // Parse the JSON response
                     .then(data => { // Process the data from the first fetch
                         console.log("this is data: " + data);
-                        var maxValue = parseInt($input.attr('max'));
-                        maxValue = Math.min(data, maxValue);
+                        var limit = sessionStorage.getItem(itemId);
+                        var quantity = data.stock;
+                        var limit1 = data.limit1;
+                        $input.attr('max', Math.min(limit, quantity, limit1));
 
-                        // Make the second fetch call inside the first then block
-                        return fetch(`api.php?operation=stock&itemId=${itemId}`, {
-                            method: 'GET',
-                        }).then(response => response.json()); // Return the parsed JSON response
-                    })
-                    .then(data => { // Process the data from the second fetch
-                        if (data.status === 200) {
-                            var maxValue = parseInt($input.attr('max'));
-                            maxValue = Math.min(data.stock_quantity, maxValue);
-                            $input.attr('max', maxValue); // Set the max attribute for the current input
-                        }
                     })
                     .catch(error => console.error('Error:', error)); // Add error handling
             });
@@ -862,15 +853,18 @@ if (isset($_POST['Add_To_Cart'])) {
                     return response.json();
                 })
                 .then(data => {
-                    console.log(data);
+                    // console.log(data);
 
                     // Convert response data to a Map
                     // var dataMap = new Map(Object.entries(data));
-                    var dataMap = new Map(Object.entries(data).map(([key, value]) => [parseInt(key), parseFloat(value)]));
-                    console.log(dataMap);
+                    // console.log(data);
+                    var limit = $('.limit').val();
+                    console.log("this is limit for " + limit);
+                    var dataMap = new Map(Object.entries(data).map(([key, value]) => [parseInt(key), parseFloat(Math.max(Math.min((limit - value.total_qty), value.limit1)), 0)]));
+                    // console.log(dataMap);
 
                     // Function to set max value
-                    function setMaxValue(itemId, limit) {
+                    function setMaxValue(itemId) {
                         $('.card').each(function() {
                             var $this = $(this);
                             var $input = $this.find('.integer-input');
@@ -878,34 +872,33 @@ if (isset($_POST['Add_To_Cart'])) {
                             var $dataItemId = $this.find('.item-id').val();
 
                             if ($dataItemId == itemId) {
-                                var maxValue = limit - (dataMap.has(itemId) ? dataMap.get(itemId) : 0);
-                                // console.log(itemId);
-                                // let stock = fetchStock(itemId);
-                                // console.log("this is stock: " + stock);
-                                // maxValue = Math.min(stock, maxValue);
-                                // console.log("this is maxValue: " + maxValue);
-                                if (itemId == 100) {
-                                    console.log(maxValue);
-                                    console.log(itemId);
-                                    console.log(dataMap.get(itemId)); // Map { 100 → "4.00" } item id is 100
-                                    console.log(dataMap.has(itemId));
-                                    console.log(limit);
-                                }
-                                sessionStorage.setItem(itemId, maxValue);
-
-                                $input.attr('max', maxValue);
-                                runAfter();
+                                fetch(`api.php?method=fetchAll&itemid=${itemId}`, {
+                                        method: 'GET',
+                                    })
+                                    .then(response => response.json()) // Parse the JSON response
+                                    .then(data => { // Process the data from the first fetch
+                                        // console.log(data);
+                                        var limitt = sessionStorage.getItem(itemId);
+                                        // var maxValue = limit - (dataMap.has(itemId) ? dataMap.get(itemId) : 0);
+                                        var maxValue = Math.min(data.limit1, data.stock, limitt);
+                                        sessionStorage.setItem(itemId, maxValue);
+                                        $input.attr('max', maxValue);
+                                    })
+                                    .catch(error => {
+                                        console.error('There was a problem with the fetch operation:', error);
+                                    });
                             }
                         });
                     }
 
+                    // runAfter();
                     // Apply max value for each item in the DOM
                     $('.add-btn').each(function() {
                         var $button = $(this);
                         var itemId = $button.data('item-id');
                         var limit = parseFloat($button.data('limit'));
 
-                        setMaxValue(itemId, limit);
+                        setMaxValue(itemId);
                     });
                 })
                 .catch(error => {
@@ -930,17 +923,6 @@ if (isset($_POST['Add_To_Cart'])) {
             });
 
         });
-        // $(".integer-input").each(function() {
-        //     var $input = $(this);
-        //     var itemId = $input.data('item-id');
-        //     var limit = parseFloat($input.data('limit'));
-
-        //     // Assuming fetchStock is an asynchronous function returning a promise
-        //     console.log("ready to take js itemId: " + itemId);
-        //     var stock = fetchStock(itemId);
-        //     console.log("stock: " + stock);
-        //     $input.attr('max', Math.min(stock, limit));
-        // });
     </script>
 
 </body>
