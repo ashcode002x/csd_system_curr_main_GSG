@@ -860,7 +860,7 @@ if (isset($_POST['Add_To_Cart'])) {
                     // console.log(data);
                     var limit = $('.limit').val();
                     console.log("this is limit for " + limit);
-                    var dataMap = new Map(Object.entries(data).map(([key, value]) => [parseInt(key), parseFloat(Math.max(Math.min((limit - value.total_qty), value.limit1)), 0)]));
+                    var dataMap = new Map(Object.entries(data).map(([key, value]) => [parseInt(key), parseFloat(value)]))
                     // console.log(dataMap);
 
                     // Function to set max value
