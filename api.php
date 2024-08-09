@@ -35,7 +35,7 @@ if (isset($_REQUEST["method"]) && $_REQUEST["method"] == "fetchAll") {
     $query2 = "SELECT SUM(od.quantity) AS total_quantity
         FROM orders o
         JOIN order_details od ON od.order_id = o.order_id
-        WHERE o.date_and_time BETWEEN ? AND NOW() AND o.user_id = ? AND od.item_id = ?";
+        WHERE o.date_and_time BETWEEN ? AND NOW() AND o.user_id = ? AND o.status = 2 AND od.item_id = ?";
 
     $stmt2 = $conn->prepare($query2);
     $stmt2->bind_param("sii", $start_date, $user_id, $itemId);
@@ -61,7 +61,7 @@ if (isset($_REQUEST["method"]) && $_REQUEST["method"] == "fetchAll") {
     // print_r($limitt);
     // die;
     $error = "";
-    if (min(($limitt - $total_quantity_for_2months), 0) < 0) {
+    if (($limitt - $total_quantity_for_2months) <= 0) {
         $error = "You have reached the limit for this item";
     } else if ($result_stock_quantity <= 0) {
         $error = "This item is out of stock";
