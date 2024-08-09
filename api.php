@@ -32,7 +32,20 @@ if (isset($_REQUEST["method"]) && $_REQUEST["method"] == "fetchAll") {
 
     $start_date = $current_month % 2 == 0 ? date('Y-m-01', strtotime('first day of -1 month')) : date('Y-m-01');
 
-    $query = "SELECT limit1, stock_quantity FROM items WHERE itemId = ?";
+    $query2 = "SELECT SUM(od.quantity) AS total_quantity
+        FROM orders o
+        JOIN order_details od ON od.order_id = o.order_id
+        WHERE o.date_and_time BETWEEN ? AND NOW() AND o.user_id = ? AND od.item_id = ?";
+
+    $stmt2 = $conn->prepare($query2);
+    $stmt2->bind_param("sii", $start_date, $user_id, $itemId);
+    $stmt2->execute();
+    $result2 = $stmt2->get_result();
+    $fetch2 = $result2->fetch_assoc();
+    $total_quantity_for_2months = $fetch2['total_quantity'];
+    $stmt2->close();
+
+    $query = "SELECT limit1, stock_quantity,limitt FROM items WHERE itemId = ?";
     $stmt = $conn->prepare($query);
     $stmt->bind_param("i", $itemId);
     $stmt->execute();
@@ -43,7 +56,25 @@ if (isset($_REQUEST["method"]) && $_REQUEST["method"] == "fetchAll") {
     }
     $result_limit1 = $fetch['limit1'];
     $result_stock_quantity = $fetch['stock_quantity'];
-    jsonResponse(array("limit1" => $result_limit1, "stock" => $result_stock_quantity));
+    $limitt = $fetch['limitt'];
+    // print_r($total_quantity_for_2months);
+    // print_r($limitt);
+    // die;
+    $error = "";
+    if (min(($limitt - $total_quantity_for_2months), 0) < 0) {
+        $error = "You have reached the limit for this item";
+    } else if ($result_stock_quantity <= 0) {
+        $error = "This item is out of stock";
+    } else if ($result_limit1 <= 0) {
+        $error = "You have reached per order limit for this item";
+    }
+    $response = array(
+        "limit1" => $result_limit1,
+        "stock" => $result_stock_quantity,
+        "limitt" => max(($limitt - $total_quantity_for_2months), 0),
+        "error_message" => $error
+    );
+    jsonResponse($response);
     die;
 }
 

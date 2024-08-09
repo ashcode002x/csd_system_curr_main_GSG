@@ -601,6 +601,7 @@ if (isset($_POST['Add_To_Cart'])) {
                                     <span><strong>Unit:</strong> <?php echo $row['Unit']; ?></span>
                                 </div>
                             </div>
+                            <div class="error_output card-text"></div>
                             <div class="card-footer">
                                 <form action="" method="POST" class="d-flex align-items-center">
                                     <input type="hidden" name="itemId" value="<?php echo $row['itemId']; ?>">
@@ -737,7 +738,6 @@ if (isset($_POST['Add_To_Cart'])) {
                         var quantity = data.stock;
                         var limit1 = data.limit1;
                         $input.attr('max', Math.min(limit, quantity, limit1));
-
                     })
                     .catch(error => console.error('Error:', error)); // Add error handling
             });
@@ -857,7 +857,7 @@ if (isset($_POST['Add_To_Cart'])) {
 
                     // Convert response data to a Map
                     // var dataMap = new Map(Object.entries(data));
-                    // console.log(data);
+                    console.log(data);
                     var limit = $('.limit').val();
                     console.log("this is limit for " + limit);
                     var dataMap = new Map(Object.entries(data).map(([key, value]) => [parseInt(key), parseFloat(value)]))
@@ -870,6 +870,7 @@ if (isset($_POST['Add_To_Cart'])) {
                             var $input = $this.find('.integer-input');
                             var $dataLimit = $this.find('.limit').val();
                             var $dataItemId = $this.find('.item-id').val();
+                            var $errorBox = $this.find('.error_output');
 
                             if ($dataItemId == itemId) {
                                 fetch(`api.php?method=fetchAll&itemid=${itemId}`, {
@@ -878,11 +879,23 @@ if (isset($_POST['Add_To_Cart'])) {
                                     .then(response => response.json()) // Parse the JSON response
                                     .then(data => { // Process the data from the first fetch
                                         // console.log(data);
+
+                                        if (sessionStorage.getItem(itemId) !== null) {
+                                            var limit = sessionStorage.getItem(itemId);
+                                            var maxi = Math.min(data.limit1, data.stock, data.limitt, limit);
+                                            sessionStorage.setItem(itemId, maxi);
+                                        } else {
+                                            var limit = Math.min(data.limit1, data.stock, data.limitt);
+                                            sessionStorage.setItem(itemId, limit);
+                                        }
+
                                         var limitt = sessionStorage.getItem(itemId);
-                                        // var maxValue = limit - (dataMap.has(itemId) ? dataMap.get(itemId) : 0);
-                                        var maxValue = Math.min(data.limit1, data.stock, limitt);
-                                        sessionStorage.setItem(itemId, maxValue);
-                                        $input.attr('max', maxValue);
+
+                                        $input.attr('max', limitt);
+                                        if (data.error_message != "") {
+                                            $errorBox.text(data.error_message);
+                                            $errorBox.attr('style', 'color: red;');
+                                        }
                                     })
                                     .catch(error => {
                                         console.error('There was a problem with the fetch operation:', error);
